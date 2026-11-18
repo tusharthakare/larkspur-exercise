@@ -111,7 +111,65 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
             "required": ["airport", "date", "from_time"],
         },
     },
+    {
+        "name": "what_automation_will_not_do",
+        "description": (
+            "Check Section 7 of the Larkspur Handbook, 'What chat automation will not do', "
+            "to learn whether a request is one this chat may never complete on its own. Use "
+            "it whenever the customer asks for something final or money-moving, for example "
+            "'can you just cancel the whole trip for me?', a refund, collecting a fare "
+            "difference, approving a hotel, rebooking on another airline, a group of 10 or "
+            "more, an unaccompanied minor, a partner-operated flight, a pet in cabin, a "
+            "medical request, or tracing baggage. Pass the customer's request in their own "
+            "words. Returns the Section 7 text, and says whether the request falls under it. "
+            "When it does, explain the limit kindly, offer what you can do (explain the "
+            "options, hold seats for 15 minutes) and hand over to a person with a summary; "
+            "never claim the action was done. It is reference reading only: it does not "
+            "cancel, refund or book anything, and it does not decide what the customer is "
+            "owed (use check_policy and fare_rules for that)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "request": {
+                    "type": "string",
+                    "description": "What the customer asked for, in their words, e.g. 'cancel the whole trip and refund me'.",
+                },
+            },
+            "required": ["request"],
+        },
+    },
 ]
+
+
+_HUMAN_ONLY = {
+    "refund": ["refund", "money back", "cancel"],
+    "fare-difference collection": ["fare difference", "fare diff", "pay the difference", "upgrade"],
+    "hotel approval": ["hotel"],
+    "other-airline rebooking": ["other airline", "another airline", "different airline"],
+    "group booking of 10 or more": ["group"],
+    "unaccompanied minor": ["unaccompanied", "minor", "child alone"],
+    "partner-operated flight": ["partner"],
+    "pet in cabin": ["pet", "dog", "cat in cabin"],
+    "medical request": ["medical", "wheelchair", "oxygen"],
+    "baggage tracing": ["lost bag", "baggage", "luggage", "bag trac"],
+}
+
+
+def what_automation_will_not_do(request):
+    from pathlib import Path
+    path = Path(__file__).resolve().parent / "data" / "americas" / "fare_rules_excerpt.md"
+    text = path.read_text(encoding="utf-8")
+    start = text.index("### 7.")
+    section = text[start:].strip()
+    asked = (request or "").lower()
+    matched = [k for k, words in _HUMAN_ONLY.items() if any(w in asked for w in words)]
+    return {
+        "request": request,
+        "handled_by_a_person": bool(matched),
+        "matched": matched,
+        "handbook_section_7": section,
+    }
 
 
 def departures_in_window(airport, date, from_time, to_time="23:59"):
@@ -148,6 +206,7 @@ LOCAL_TOOLS: Dict[str, Any] = {          # ✏️ Build 2, step 2.1: the functio
     "next_available_day": next_available_day,
     "seats_left": seats_left,
     "departures_in_window": departures_in_window,
+    "what_automation_will_not_do": what_automation_will_not_do,
 }
 
 
