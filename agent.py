@@ -87,7 +87,47 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
             "required": ["flight_no", "date"],
         },
     },
+    {
+        "name": "departures_in_window",
+        "description": (
+            "List the Larkspur flights leaving one airport on one date within a time-of-day "
+            "window, with status, delay and free seats per cabin. Use it when the customer "
+            "asks what else is leaving their airport soon, for example 'what is still "
+            "leaving Denver this afternoon?'. Turn words like 'afternoon' into clock times "
+            "yourself (afternoon is 12:00 to 18:00) and take the airport and date from "
+            "lookup_booking unless the customer names another. Windows use the estimated "
+            "departure (scheduled plus delay), and cancelled flights are left out. It reads "
+            "the schedule only: it does not hold or book anything, and for options to "
+            "replace the customer's own disrupted flight use search_alternatives."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "airport": {"type": "string", "description": "Departure airport code, e.g. DEN."},
+                "date": {"type": "string", "description": "Local date, YYYY-MM-DD, e.g. 2025-05-07."},
+                "from_time": {"type": "string", "description": "Window start, 24-hour local HH:MM, e.g. 12:00."},
+                "to_time": {"type": "string", "description": "Window end, 24-hour local HH:MM, e.g. 18:00. Defaults to end of day."},
+            },
+            "required": ["airport", "date", "from_time"],
+        },
+    },
 ]
+
+
+def departures_in_window(airport, date, from_time, to_time="23:59"):
+    from support.mock_backend import _add_minutes, load_flights
+    out = []
+    for row in load_flights():
+        if row["origin"] != airport or row["date"] != date or row["status"] == "CANCELLED":
+            continue
+        est = _add_minutes(row["sched_dep_local"], row["delay_min"])
+        if from_time <= est <= to_time:
+            out.append({"flight_no": row["flight_no"], "dest": row["dest"],
+                        "sched_dep_local": row["sched_dep_local"], "est_dep_local": est,
+                        "status": row["status"], "delay_min": row["delay_min"],
+                        "seats_left_Y": row["seats_left_Y"], "seats_left_J": row["seats_left_J"]})
+    out.sort(key=lambda r: r["est_dep_local"])
+    return {"airport": airport, "date": date, "window": [from_time, to_time], "departures": out}
 
 
 def seats_left(flight_no, date, party_size=None):
@@ -107,6 +147,7 @@ def seats_left(flight_no, date, party_size=None):
 LOCAL_TOOLS: Dict[str, Any] = {          # ✏️ Build 2, step 2.1: the functions behind them
     "next_available_day": next_available_day,
     "seats_left": seats_left,
+    "departures_in_window": departures_in_window,
 }
 
 
