@@ -68,7 +68,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
     answer = ""
     turns = 1
     while response.stop_reason == "tool_use" and turns < MAX_TOOL_CALLS:
-        messages.append({"role": "assistant", "content": text_of(response)})
+        messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results(response)})
         answer = text_of(response)
         response = client.messages.create(
@@ -77,6 +77,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         )
         turns += 1
 
+    answer = text_of(response)
     return answer
 
 
@@ -119,17 +120,31 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "flight_no": {"type": "string"},
-                    "date": {"type": "string", "description": "MM/DD/YYYY"},
+                    "date": {"type": "string", "description": "Local flight date as YYYY-MM-DD, e.g. 2025-05-08"},
                 },
                 "required": ["flight_no", "date"],
             },
         },
         {
             "name": "search_alternatives",
-            "description": "search",
+            "description": (
+                "Search Altura for other Larkspur flights that could replace the booking's "
+                "disrupted segment: same origin, destination and cabin, with enough seats for "
+                "everyone on the booking, excluding the disrupted flight. Call it only when the "
+                "customer needs a new flight (cancelled, missed connection, or a delay that "
+                "policy says qualifies for a free change), after lookup_booking and "
+                "get_flight_status. Returns option_ids; show real options only and never invent "
+                "a time or seat. It searches, it does not book: pass an option_id to hold_seat "
+                "only after the customer picks one."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}},
+                "properties": {
+                    "pnr": {
+                        "type": "string",
+                        "description": "The 6-character booking code the customer gave; the tool finds the disrupted segment itself.",
+                    },
+                },
                 "required": ["pnr"],
             },
         },
@@ -215,10 +230,23 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
         },
         {
             "name": "send_confirmation",
-            "description": "Send the customer a written confirmation of what was just done. Benign.",
+            "description": (
+                "Send the customer a written record of an action that has ALREADY happened "
+                "(a seat held, a rebooking confirmed, a voucher issued). Call it once, after "
+                "that action's tool has succeeded, never before and never to announce "
+                "something merely planned. It does not do or change anything on the booking, "
+                "and it is not a way to chat: replies to the customer go in your normal "
+                "answer. Only state facts returned by the earlier tools."
+            ),
             "input_schema": {
                 "type": "object",
-                "properties": {"pnr": {"type": "string"}, "message": {"type": "string"}},
+                "properties": {
+                    "pnr": {"type": "string", "description": "The customer's 6-character booking code."},
+                    "message": {
+                        "type": "string",
+                        "description": "Plain, polite text naming what was done, using only details returned by the tools (flight, time, ids). Invent nothing.",
+                    },
+                },
                 "required": ["pnr", "message"],
             },
         },
