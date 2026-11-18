@@ -12,5 +12,8 @@ The review reads these names. Nothing else comes off the list. Your team still
 decides in the moment who does what.
 
 - Hariprabu Mohanasundaram
-- <Name>
-- <Name>
+- Tushar Thakare
+- Rajesh Rajgopalan
+- Varun Rana
+- Meghraj Fand
+- Neelotpal C
