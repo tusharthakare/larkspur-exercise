@@ -10,13 +10,21 @@ Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
 from typing import Any, Dict, List
-from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
+from support.models import latest
+from support import (MODEL,SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
-TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
+TONE_ADDENDUM = (
+    "\n\nTone and escalation. If the customer is abusive, hostile, or threatens legal "
+    "action, do not carry on with a normal entitlements or rebooking rundown. Acknowledge "
+    "the complaint once, in one calm sentence, without arguing or apologising at length. "
+    "Call escalate_to_human so a person takes over, and tell the customer that is what you "
+    "have done. Do not issue a voucher, offer a refund, confirm a rebooking, or promise "
+    "any outcome in that reply."
+)                                        # ✏️ Build 4, step 4.1, intelligence goal
 EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
     {
         "name": "seats_left",
@@ -136,7 +144,7 @@ def tool_results(response) -> List[Dict[str, Any]]:
     return results
 
 
-def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏️ Build 1, step 1.2
+def run_agent(pnr: str, last_name: str, message: str, model: str = latest("opus")) -> str:  # ✏️ Build 1, step 1.2
     """Run the tool loop until Claude stops asking for tools. Return its final text."""
     client, tracer = new_session()
     tools = tool_list()
@@ -145,7 +153,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
     ]
 
     response = client.messages.create(
-        model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
+        model=model, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
         thinking={"type": "adaptive"}, tools=tools, messages=messages,
     )
 
@@ -156,7 +164,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         messages.append({"role": "user", "content": tool_results(response)})
         answer = text_of(response)
         response = client.messages.create(
-            model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
+            model=model, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
             thinking={"type": "adaptive"}, tools=tools, messages=messages,
         )
         turns += 1
