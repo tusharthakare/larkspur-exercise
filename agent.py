@@ -1,4 +1,4 @@
-"""Larkspur disruption agent. This is the file you build.
+﻿"""Larkspur disruption agent. This is the file you build.
 
 It runs right now, and it is wrong in four places. The trace shows each one
 before the code does, so read the trace first:
@@ -18,51 +18,6 @@ MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human ta
 
 TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
 EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
-    {
-        "name": "next_available_day",
-        "description": (
-            "Find the first date on which a Larkspur flight between two airports has free "
-            "seats in a given cabin, searching forward from a date you supply. Use it when "
-            "the customer asks 'when is the first day I can fly?' or the soonest day they "
-            "could get out, especially when nothing is available today. Take origin, "
-            "destination and the disrupted date from lookup_booking; do not ask the customer "
-            "for them. Returns the earliest date with an open seat, or says none was found. "
-            "It reads availability only: it does not hold or book anything, and it checks "
-            "for one passenger, so compare the party size before promising seats."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "origin": {"type": "string", "description": "Origin airport code, e.g. DEN."},
-                "dest": {"type": "string", "description": "Destination airport code, e.g. BOI."},
-                "date": {"type": "string", "description": "Search forward from this local date, YYYY-MM-DD, e.g. 2025-05-06."},
-                "cabin": {"type": "string", "description": "Cabin code; defaults to Y (economy)."},
-            },
-            "required": ["origin", "dest", "date"],
-        },
-    },
-    {
-        "name": "fare_rules",
-        "description": (
-            "Read the Larkspur Handbook text (fare_rules_excerpt.md) behind an entitlement "
-            "decision. Use it when the customer asks why something is or is not covered, "
-            "for example 'why do I not get a hotel?', or challenges an answer and wants the "
-            "rule, so the reply can quote the Handbook instead of paraphrasing it. It needs "
-            "one section: a number, or words from the section title such as 'care while you "
-            "wait'. Returns that section's full text. It is reference reading only: it does "
-            "not decide what is owed, so the policy table stays the source of truth."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "section": {
-                    "type": "string",
-                    "description": "Section number like '6', or words from its title, e.g. 'care while you wait', 'fare families'.",
-                },
-            },
-            "required": ["section"],
-        },
-    },
     {
         "name": "seats_left",
         "description": (
@@ -145,7 +100,6 @@ def seats_left(flight_no, date, party_size=None):
 
 
 LOCAL_TOOLS: Dict[str, Any] = {          # ✏️ Build 2, step 2.1: the functions behind them
-    "next_available_day": next_available_day,
     "seats_left": seats_left,
     "departures_in_window": departures_in_window,
 }
@@ -214,7 +168,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    return build_tools() + EXTRA_TOOLS
+    return build_tools() + EXTRA_TOOLS + mcp_client.tools()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
